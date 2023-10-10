@@ -5,32 +5,27 @@ fn get_longest_word(ingredients: Vec<&str>) -> &str {
         .collect();
 
     let longest_word = all_singular_words
-    .iter()
-    .max_by_key(|&&word| word.len())
-    .unwrap_or(&"");
+        .iter()
+        .max_by_key(|&&word| word.len())
+        .unwrap_or(&"");
 
     longest_word
 }
 
 fn get_longest_ingredient_height(ingredients: Vec<&str>) -> usize {
-
     let most_number_of_words: usize = ingredients
-    .iter()
-    .map(| ingredient| ingredient.split_whitespace().count())
-    .max()
-    .unwrap_or(0);
+        .iter()
+        .map(|ingredient| ingredient.split_whitespace().count())
+        .max()
+        .unwrap_or(0);
 
     most_number_of_words
 }
 
 fn get_seperator_string(column_cell_size: usize) -> String {
-    let seperator = format!(
-        "+{}+{}+{}+",
-        "-".repeat(column_cell_size),
-        "-".repeat(column_cell_size),
-        "-".repeat(column_cell_size)
-    );
-    return seperator;
+    let sep = "-".repeat(column_cell_size);
+
+    format!("+{}+{}+{}+", sep, sep, sep)
 }
 
 fn add_next_table_row(table: String, row: String) -> String {
@@ -53,7 +48,7 @@ fn add_centered_ingredient(
     column_cell_size: usize,
 ) -> String {
     let total_padding = column_cell_size - ingredient.len();
-    
+
     let padding_per_side = (total_padding / 2) as f32;
     let front_padding = padding_per_side.floor() as usize;
     let back_padding = total_padding - front_padding;
@@ -172,19 +167,16 @@ fn create_table(
     for row_number in 0..num_rows {
         let ingredient_row = (row_number as f32 / row_cell_size as f32).floor() as usize;
 
-        if row_cell_size * num_padding +  ingredient_row == row_number {
-           table = add_next_table_row(table.clone(), seperator.clone());
-           num_padding += 1;
-        } 
-        
-        if row_number % row_cell_size == 0 && row_number != 0 {
-            let row_ingredients: Vec<&str> = ingredients[(ingredient_row - 1)*3..(ingredient_row - 1)*3+3].to_vec();
+        if row_cell_size * num_padding + ingredient_row == row_number {
+            table = add_next_table_row(table.clone(), seperator.clone());
+            num_padding += 1;
+        }
 
-            let row = create_ingredient_row(
-                column_cell_size,
-                row_cell_size,
-                row_ingredients
-            );
+        if row_number % row_cell_size == 0 && row_number != 0 {
+            let row_ingredients: Vec<&str> =
+                ingredients[(ingredient_row - 1) * 3..(ingredient_row - 1) * 3 + 3].to_vec();
+
+            let row = create_ingredient_row(column_cell_size, row_cell_size, row_ingredients);
 
             table = format!("{}\n{}", table.clone(), row);
         }
