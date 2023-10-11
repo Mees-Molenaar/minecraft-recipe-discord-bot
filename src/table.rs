@@ -1,3 +1,7 @@
+// Refactor ideeen
+// Code opsplitsen over meerdere files, maar weet nog niet zo goed hoe
+// En of dat wel nodig is?
+
 fn get_longest_word(ingredients: Vec<&str>) -> &str {
     let all_singular_words: Vec<&str> = ingredients
         .iter()
@@ -39,7 +43,7 @@ struct RowIngredient {
 }
 
 fn add_padding(row_string: String, column_cell_size: usize) -> String {
-    return format!("{} {}", row_string, " ".repeat(column_cell_size));
+    format!("{}{}", row_string, " ".repeat(column_cell_size))
 }
 
 fn add_centered_ingredient(
@@ -49,56 +53,50 @@ fn add_centered_ingredient(
 ) -> String {
     let total_padding = column_cell_size - ingredient.len();
 
-    let padding_per_side = (total_padding / 2) as f32;
-    let front_padding = padding_per_side.floor() as usize;
+    let padding_per_side = total_padding / 2;
+    let front_padding = padding_per_side;
     let back_padding = total_padding - front_padding;
 
-    return format!(
+    format!(
         "{}{}{}{}",
         row_string,
         " ".repeat(front_padding),
         ingredient,
         " ".repeat(back_padding)
-    );
+    )
 }
 
-fn create_row_ingredients(ingredients: Vec<&str>, row_cell_size: i32) -> Vec<RowIngredient> {
-    let mut row: Vec<RowIngredient> = Vec::new();
+fn create_row_ingredient(ingredient: &str, row_cell_size: i32) -> RowIngredient {
+    let mut words: Vec<&str> = ingredient.split(' ').collect();
+    let mut padding: Vec<bool> = Vec::new();
+    let mut padded_words: Vec<String> = Vec::new();
 
-    for ingredient in ingredients {
-        let mut words: Vec<&str> = ingredient.split(' ').collect();
-        let mut padding: Vec<bool> = Vec::new();
-        let mut padded_words: Vec<String> = Vec::new();
+    let total_padding = row_cell_size - words.len() as i32;
+    let top_padding = total_padding / 2;
+    let bottom_padding = total_padding - top_padding;
 
-        // Deze padding functie kan nog gerefactoord worden
-        // Het moet gecentreerd dus
-        let total_padding = row_cell_size - words.len() as i32;
-        let boundary_padding = (total_padding / 2) as f32;
-        let top_padding = boundary_padding.floor() as i32;
-        let bottom_padding = total_padding - top_padding;
-
-        for row_num in 0..row_cell_size as i32 {
-            if top_padding - row_num > 0 {
-                padded_words.push(String::from(""));
-                padding.push(true);
-            } else if row_cell_size - bottom_padding <= row_num {
-                padded_words.push(String::from(""));
-                padding.push(true)
-            } else {
-                padded_words.push(String::from(words.remove(0)));
-                padding.push(false)
-            }
+    for row_num in 0..row_cell_size as i32 {
+        let row_is_padded = top_padding - row_num > 0 || row_cell_size - bottom_padding <= row_num;
+        if row_is_padded {
+            padded_words.push("".to_string());
+            padding.push(true);
+        } else {
+            padded_words.push(words.remove(0).to_string());
+            padding.push(false)
         }
-
-        let row_ingredient = RowIngredient {
-            words: padded_words,
-            padding,
-        };
-
-        row.push(row_ingredient)
     }
 
-    return row;
+    RowIngredient {
+        words: padded_words,
+        padding,
+    }
+}
+
+fn create_row_ingredients(ingredients: &Vec<&str>, row_cell_size: i32) -> Vec<RowIngredient> {
+    ingredients
+        .iter()
+        .map(|&ingredient| create_row_ingredient(ingredient, row_cell_size))
+        .collect()
 }
 
 fn build_rows(
@@ -109,26 +107,26 @@ fn build_rows(
     let mut rows: Vec<String> = Vec::new();
 
     for row_number in 0..row_cell_size {
-        let mut row_string = String::from("|");
+        let row_string = row_ingredients
+            .iter()
+            .map(|ingredient| {
+                if ingredient.padding[row_number] {
+                    return add_padding("".to_string(), column_cell_size);
+                } else {
+                    return add_centered_ingredient(
+                        "".to_string(),
+                        ingredient.words[row_number].clone(),
+                        column_cell_size,
+                    );
+                }
+            })
+            .collect::<Vec<String>>()
+            .join("|");
 
-        for ingredient in row_ingredients.iter() {
-            let padding = ingredient.padding[row_number];
-            if padding == true {
-                row_string = add_padding(row_string.clone(), column_cell_size - 1);
-            } else {
-                row_string = add_centered_ingredient(
-                    row_string.clone(),
-                    ingredient.words[row_number].clone(),
-                    column_cell_size,
-                );
-            }
-
-            row_string = format!("{}|", row_string);
-        }
-        rows.push(row_string);
+        rows.push(format!("|{}|", row_string));
     }
 
-    return rows;
+    rows
 }
 
 fn create_ingredient_row(
@@ -136,18 +134,17 @@ fn create_ingredient_row(
     row_cell_size: usize,
     ingredients: Vec<&str>,
 ) -> String {
-    let row_ingredients = create_row_ingredients(ingredients, row_cell_size as i32);
-
+    let row_ingredients = create_row_ingredients(&ingredients, row_cell_size as i32);
     let rows = build_rows(row_ingredients, row_cell_size, column_cell_size);
 
-    return rows.join("\n");
+    rows.join("\n")
 }
 
 const PADDING: usize = 2; // 1 padding at both sides
 const NUM_INGREDIENT_ROWS: usize = 3;
 const ROW_SEPERATORS: usize = 4; // first row, after first ingredient, after second ingredient and last row
 
-// Test voor maken
+
 fn create_table(
     ingredients: Vec<&str>,
     longest_word_length: usize,
@@ -165,14 +162,14 @@ fn create_table(
     let mut num_padding = 0;
 
     for row_number in 0..num_rows {
-        let ingredient_row = (row_number as f32 / row_cell_size as f32).floor() as usize;
+        let ingredient_row = row_number / row_cell_size;
 
         if row_cell_size * num_padding + ingredient_row == row_number {
             table = add_next_table_row(table.clone(), seperator.clone());
             num_padding += 1;
         }
 
-        if row_number % row_cell_size == 0 && row_number != 0 {
+        if row_number % row_cell_size == 0 && row_number != 0 && ingredient_row <= 3 {
             let row_ingredients: Vec<&str> =
                 ingredients[(ingredient_row - 1) * 3..(ingredient_row - 1) * 3 + 3].to_vec();
 
@@ -187,7 +184,6 @@ fn create_table(
     return table;
 }
 
-// Test voor maken
 pub fn print_recipe_table(ingredients: Vec<&str>) -> String {
     let longest_word = get_longest_word(ingredients.clone());
     let longest_ingredient_height = get_longest_ingredient_height(ingredients.clone());
@@ -271,7 +267,7 @@ mod tests {
             },
         ];
 
-        let result = create_row_ingredients(vec!["test", "test test test", "test test"], 3);
+        let result = create_row_ingredients(&vec!["test", "test test test", "test test"], 3);
 
         assert_eq!(result, expected_row_ingredients)
     }
@@ -384,7 +380,7 @@ mod tests {
     fn create_ingredient_row_empty() {
         let ingredients: Vec<&str> = vec![];
         let result = create_ingredient_row(3, 4, ingredients);
-        assert_eq!(result, "|\n|\n|\n|");
+        assert_eq!(result, "||\n||\n||\n||");
     }
 
     #[test]
@@ -394,5 +390,49 @@ mod tests {
 
         let result = create_ingredient_row(6, 5, ingredients);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_create_table() {
+        let ingredients = vec![
+            "Ingredient1",
+            "Ingredient2",
+            "Ingredient3",
+            "Ingredient4",
+            "Ingredient5",
+            "Ingredient6",
+            "Ingredient7",
+            "Ingredient8",
+            "Ingredient9",
+        ];
+        let longest_word_length = 11;
+        let longest_ingredient_height = 1;
+
+        let expected_output: &str = "```\n\n+-------------+-------------+-------------+\n|             |             |             |\n| Ingredient1 | Ingredient2 | Ingredient3 |\n|             |             |             |\n+-------------+-------------+-------------+\n|             |             |             |\n| Ingredient4 | Ingredient5 | Ingredient6 |\n|             |             |             |\n+-------------+-------------+-------------+\n|             |             |             |\n| Ingredient7 | Ingredient8 | Ingredient9 |\n|             |             |             |\n```";
+
+        let result = create_table(ingredients, longest_word_length, longest_ingredient_height);
+
+        assert_eq!(result, expected_output);
+    }
+
+    #[test]
+    fn test_print_recipe_table() {
+        let ingredients = vec![
+            "Ingredient1",
+            "Ingredient2",
+            "Ingredient3",
+            "Ingredient4",
+            "Ingredient5",
+            "Ingredient6",
+            "Ingredient7",
+            "Ingredient8",
+            "Ingredient9",
+        ];
+
+        let expected_output: &str = "```\n\n+-------------+-------------+-------------+\n|             |             |             |\n| Ingredient1 | Ingredient2 | Ingredient3 |\n|             |             |             |\n+-------------+-------------+-------------+\n|             |             |             |\n| Ingredient4 | Ingredient5 | Ingredient6 |\n|             |             |             |\n+-------------+-------------+-------------+\n|             |             |             |\n| Ingredient7 | Ingredient8 | Ingredient9 |\n|             |             |             |\n```";
+
+        let result = print_recipe_table(ingredients);
+
+        assert_eq!(result, expected_output);
     }
 }
