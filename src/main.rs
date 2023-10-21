@@ -15,55 +15,44 @@ struct Bot;
 mod table;
 
 fn load_json(path: &str) -> serde_json::Value {
-    let contents = fs::read_to_string(path)
-        .expect("Should have been able to read the file");
+    let contents = fs::read_to_string(path).expect("Should have been able to read the file");
 
-    let recipes: serde_json::Value = serde_json::from_str(&contents).expect("JSON was not well formatted.");
+    let recipes: serde_json::Value =
+        serde_json::from_str(&contents).expect("JSON was not well formatted.");
 
-    return recipes
+    return recipes;
 }
 
 #[async_trait]
 impl EventHandler for Bot {
-
-
     async fn message(&self, ctx: Context, msg: Message) {
-       
         let recipes = load_json("data/recipes.json");
 
         let mut iter = msg.content.split_whitespace();
 
-        let command = iter
-        .next()
-        .unwrap_or("");
+        let command = iter.next().unwrap_or("");
 
         if command != "!recipe" {
             return;
         }
 
-        let item = iter
-        .next()
-        .unwrap_or("");
+        let item = iter.next().unwrap_or("");
 
-        let recipe_string = &recipes[item].to_string();
+        let message = match &recipes.get(item) {
+            Some(value) => {
+                let recipe = value.to_string();
+                let items: Vec<&str> =
+                    serde_json::from_str(&recipe).expect("JSON formatting goes wrong.exe");
+                let table = print_recipe_table(items);
+                table
+            }
+            None => {
+                // TODO: Give suggestions
+                format!("Item: {} recept bestaat niet.", { item })
+            }
+        };
 
-        let items: Vec<&str> = serde_json::from_str(&recipe_string).expect("JSON formatting goes wrong.exe");
-
-        println!("{:?}", items);
-        println!("{:?}", &items[0..3]);
-
-        // let recipe_message = format!(
-        //     "
-        //     {:?}  
-        //     {:?} 
-        //     {:?}", &items[0..3], &items[3..6], &items[6..9]
-        // );
-
-        let table = print_recipe_table(items);
-        println!("{:?}", table);
-
-
-        if let Err(e) = msg.channel_id.say(&ctx.http, format!("{}", table)).await {
+        if let Err(e) = msg.channel_id.say(&ctx.http, format!("{}", message)).await {
             error!("Error sending message: {:?}", e);
         }
     }
