@@ -1,4 +1,4 @@
-use scraper::{ Html, Selector};
+use scraper::{Html, Selector};
 use std::collections::HashMap;
 use std::fs::File;
 use std::{thread, time};
@@ -14,7 +14,9 @@ fn get_item_paths() -> Vec<String> {
     let item_url = format!("{}/wiki/Item", BASE_URL);
     let response = reqwest::blocking::get(item_url).expect("Error while getting the item page");
 
-    let text = response.text().expect("Error while getting the text from the response.");
+    let text = response
+        .text()
+        .expect("Error while getting the text from the response.");
     let document = Html::parse_document(&text);
 
     let div_selector = scraper::Selector::parse("div.div-col.columns.column-width").unwrap();
@@ -25,11 +27,12 @@ fn get_item_paths() -> Vec<String> {
 
     let paths: Vec<String> = divs
         .flat_map(|div| {
-        let ul = div.select(&ul_selector).next().unwrap();
-        
-        ul.select(&a_selector)
-            .filter_map(|a| a.value().attr("href").map(String::from))
-    }).collect();
+            let ul = div.select(&ul_selector).next().unwrap();
+
+            ul.select(&a_selector)
+                .filter_map(|a| a.value().attr("href").map(String::from))
+        })
+        .collect();
 
     paths
 }
@@ -107,10 +110,12 @@ fn main() {
             }
 
             recipes.insert(
-                path.split("/")
+                path.split('/')
                     .last()
                     .expect("Error getting the recipe name.")
-                    .to_string(),
+                    .to_string()
+                    .replace('_', " ")
+                    .to_lowercase(),
                 ingredients,
             );
 

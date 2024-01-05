@@ -144,7 +144,6 @@ const PADDING: usize = 2; // 1 padding at both sides
 const NUM_INGREDIENT_ROWS: usize = 3;
 const ROW_SEPERATORS: usize = 4; // first row, after first ingredient, after second ingredient and last row
 
-
 fn create_table(
     ingredients: Vec<&str>,
     longest_word_length: usize,
