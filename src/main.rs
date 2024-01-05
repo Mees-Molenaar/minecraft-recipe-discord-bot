@@ -1,16 +1,11 @@
-use anyhow::anyhow;
-use serenity::async_trait;
-use serenity::model::channel::Message;
-use serenity::model::gateway::Ready;
-use serenity::prelude::*;
-use shuttle_secrets::SecretStore;
-use tracing::{error, info};
-
+use poise::serenity_prelude as serenity;
 use std::fs;
 
 use crate::table::print_recipe_table;
 
-struct Bot;
+struct Data {}
+type Error = Box<dyn std::error::Error + Send + Sync>;
+type Context<'a> = poise::Context<'a, Data, Error>;
 
 mod table;
 
@@ -20,66 +15,67 @@ fn load_json(path: &str) -> serde_json::Value {
     let recipes: serde_json::Value =
         serde_json::from_str(&contents).expect("JSON was not well formatted.");
 
-    return recipes;
+    recipes
 }
 
-#[async_trait]
-impl EventHandler for Bot {
-    async fn message(&self, ctx: Context, msg: Message) {
-        let recipes = load_json("data/recipes.json");
+#[poise::command(slash_command)]
+async fn recipe(
+    ctx: Context<'_>,
+    #[description = "Ask for a recipe"] item: String,
+) -> Result<(), Error> {
+    let recipes = load_json("data/recipes.json");
 
-        let mut iter = msg.content.split_whitespace();
-
-        let command = iter.next().unwrap_or("");
-
-        if command != "!recipe" {
-            return;
+    let message = match &recipes.get(item.clone().to_lowercase()) {
+        Some(value) => {
+            let recipe = value.to_string();
+            let items: Vec<&str> =
+                serde_json::from_str(&recipe).expect("JSON formatting goes wrong.exe");
+            print_recipe_table(items)
         }
-
-        let item = iter.next().unwrap_or("");
-
-        let message = match &recipes.get(item) {
-            Some(value) => {
-                let recipe = value.to_string();
-                let items: Vec<&str> =
-                    serde_json::from_str(&recipe).expect("JSON formatting goes wrong.exe");
-                let table = print_recipe_table(items);
-                table
-            }
-            None => {
-                // TODO: Give suggestions
-                format!("Item: {} recept bestaat niet.", { item })
-            }
-        };
-
-        if let Err(e) = msg.channel_id.say(&ctx.http, format!("{}", message)).await {
-            error!("Error sending message: {:?}", e);
+        None => {
+            // TODO: Give suggestions
+            format!("Item: {} recept bestaat niet.", { item.clone() })
         }
-    }
-
-    async fn ready(&self, _: Context, ready: Ready) {
-        info!("{} is connected!", ready.user.name);
-    }
-}
-
-#[shuttle_runtime::main]
-async fn serenity(
-    #[shuttle_secrets::Secrets] secret_store: SecretStore,
-) -> shuttle_serenity::ShuttleSerenity {
-    // Get the discord token set in `Secrets.toml`
-    let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
-        token
-    } else {
-        return Err(anyhow!("'DISCORD_TOKEN' was not found").into());
     };
 
-    // Set gateway intents, which decides what events the bot will be notified about
-    let intents = GatewayIntents::GUILD_MESSAGES | GatewayIntents::MESSAGE_CONTENT;
+    ctx.say(message).await?;
 
-    let client = Client::builder(&token, intents)
-        .event_handler(Bot)
+    Ok(())
+}
+
+// NOTE: Easy to register and deregister commands
+// #[poise::command(prefix_command)]
+// pub async fn register(ctx: Context<'_>) -> Result<(), Error> {
+//     poise::builtins::register_application_commands_buttons(ctx).await?;
+//     Ok(())
+// }
+
+#[tokio::main]
+async fn main() {
+    let token = std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN");
+    let intents = serenity::GatewayIntents::non_privileged();
+
+    let framework = poise::Framework::builder()
+        .token(token)
+        .intents(intents)
+        .options(poise::FrameworkOptions {
+            commands: vec![
+                recipe(),
+                // register()
+            ],
+            ..Default::default()
+        })
+        .setup(|ctx, _ready, framework| {
+            Box::pin(async move {
+                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                Ok(Data {})
+            })
+        })
+        .build()
         .await
-        .expect("Err creating client");
+        .expect("Error creating framework");
 
-    Ok(client.into())
+    if let Err(why) = framework.start().await {
+        println!("Client error: {:?}", why);
+    }
 }

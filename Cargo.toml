@@ -2,15 +2,18 @@
 name = "minecraft-recipe-discord-bot"
 version = "0.1.0"
 edition = "2021"
+default-run = "minecraft-recipe-discord-bot"
 
 [dependencies]
 anyhow = "1.0.66"
-shuttle-serenity = "0.25.0"
-shuttle-runtime = "0.25.0"
-serenity = { version = "0.11.5", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
-shuttle-secrets = "0.25.0"
-tokio = "1.26.0"
+poise = "0.5.7"
 tracing = "0.1.37"
 reqwest = { version = "0.11.20", features=["blocking"]}
 scraper = "0.17.1"
 serde_json = "1.0.107"
+tokio = { version = "1.25.1", default-features = false } # for async in general
+
+[dependencies.serenity]
+default-features = false
+features = ["builder", "client", "gateway", "model", "utils", "collector", "framework", "rustls_backend"]
+version = "0.12.0"
